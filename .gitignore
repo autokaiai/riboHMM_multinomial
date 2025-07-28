@@ -1,16 +1,28 @@
-# Large reference files
-02_Reference_Files/MANE.GRCh38.v0.95.select_ensembl_rna.fna
-02_Reference_Files/Ignolia_transcriptome_and_contamination.fasta
+# Ignore BAM files and their indices
+00_BAMs/
 
-# Large BAM and BED files
-00_BAMs/probe1_reads.bed
-00_BAMs/uf_muellermcnicoll_2025_04_01_huvec_dnor_2_dedup.bam
-00_BAMs/uf_muellermcnicoll_2025_04_02_huvec_dnor_3_dedup.bam
-00_BAMs/uf_muellermcnicoll_2025_04_03_huvec_dnor_4_dedup.bam
+# Ignore reference files that can be downloaded
+01_Reference_Files/
 
-# You might also consider ignoring all files of these types in these directories
-# For example:
-# 00_BAMs/*.bed
-# 00_BAMs/*.bam
-# 02_Reference_Files/*.fna
-# 02_Reference_Files/*.fasta
+# Ignore processed data, as it's generated from raw data
+02_Processed_Data/
+
+# Ignore EDA plots, as they are outputs of the analysis
+03_EDA_Plots/
+
+# Ignore trained models, they are too large for a git repo
+04_Models/
+
+# Ignore validation reports
+05_Reports/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
