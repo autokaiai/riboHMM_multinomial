@@ -30,6 +30,8 @@ import numpy as np
 from hmmlearn import hmm
 from tqdm import tqdm
 
+from utils import create_lagging_windows, normalize_emissions
+
 # --- Logging Configuration ---
 logging.basicConfig(
     level=logging.INFO,
@@ -123,52 +125,7 @@ def load_data(
     return transcript_data, model_config
 
 
-def create_lagging_windows(
-    read_counts: np.ndarray, window_size: int, lag_offset: int, constant_values: int = 1
-) -> np.ndarray:
-    """Creates lagging windows from a 1D array of read counts.
-
-    This function generates a 2D array of sliding windows over the input read
-    counts. The `lag_offset` parameter allows the windows to be shifted relative
-    to the start of the sequence, which is useful for aligning features like
-    the P-site of a ribosome.
-
-    Args:
-        read_counts: A 1D NumPy array of read counts for a single transcript.
-        window_size: The size of each sliding window.
-        lag_offset: The number of positions to shift the window start. This is
-                    achieved by prepending `lag_offset` constant values.
-        constant_values: The value to use for padding. Defaults to 1.
-
-    Returns:
-        A 2D NumPy array where each row is a window of size `window_size`.
-    """
-    padded_counts = np.pad(
-        read_counts, (lag_offset, 0), "constant", constant_values=constant_values
-    )
-    num_windows = len(read_counts)
-    if num_windows == 0:
-        return np.empty((0, window_size), dtype=np.int32)
-    shape = (num_windows, window_size)
-    strides = (padded_counts.strides[0], padded_counts.strides[0])
-    windows = np.lib.stride_tricks.as_strided(
-        padded_counts, shape=shape, strides=strides
-    )
-    return windows
-
-
-def normalize_emissions(unnormalized_emissions: np.ndarray) -> np.ndarray:
-    """Normalizes emission probabilities to ensure they sum to 1 across each state.
-
-    Args:
-        unnormalized_emissions: A 2D NumPy array of emission blueprints.
-
-    Returns:
-        A 2D NumPy array with normalized emission probabilities.
-    """
-    row_sums = unnormalized_emissions.sum(axis=1, keepdims=True)
-    row_sums[row_sums == 0] = 1  # Avoid division by zero
-    return unnormalized_emissions / row_sums
+# The create_lagging_windows and normalize_emissions functions have been moved to utils.py
 
 
 def initialize_model(

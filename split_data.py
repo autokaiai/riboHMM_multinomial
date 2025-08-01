@@ -35,34 +35,11 @@ import pandas as pd
 from tqdm import tqdm
 import json
 
+from utils import calculate_tpm
+
+
 # --- Helper Function for TPM Calculation ---
-def calculate_tpm(
-    read_counts: Dict[str, int], transcript_lengths: Dict[str, int]
-) -> Dict[str, float]:
-    """Calculates Transcripts Per Million (TPM) for a set of transcripts.
-
-    Args:
-        read_counts: A dictionary mapping transcript IDs to their total read counts.
-        transcript_lengths: A dictionary mapping transcript IDs to their lengths in nucleotides.
-
-    Returns:
-        A dictionary mapping transcript IDs to their TPM values.
-    """
-    rpk = {
-        tid: (reads / (transcript_lengths[tid] / 1000.0))
-        for tid, reads in read_counts.items()
-    }
-
-    # Calculate the "per million" scaling factor
-    total_rpk = sum(rpk.values())
-    if total_rpk == 0:
-        return {tid: 0.0 for tid in read_counts.keys()}
-    
-    scaling_factor = total_rpk / 1_000_000.0
-
-    # Calculate TPM for each transcript
-    tpm_values = {tid: rpk_val / scaling_factor for tid, rpk_val in rpk.items()}
-    return tpm_values
+# The calculate_tpm has been moved to utils.py
 
 
 # --- Logging Configuration ---
@@ -71,6 +48,84 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] - %(message)s",
     stream=sys.stdout,
 )
+
+
+def split_transcript_ids(
+    all_tids: List[str],
+    transcript_data: Dict[str, np.ndarray],
+    split_method: str,
+    train_split_fraction: float,
+    random_state: int,
+    stratification_bins: int,
+) -> Tuple[List[str], List[str]]:
+    """
+    Splits transcript IDs into training and testing sets based on the specified method.
+
+    Args:
+        all_tids: A list of all transcript IDs.
+        transcript_data: The full dictionary of transcript data.
+        split_method: The splitting strategy ('random', 'stratified_raw', 'stratified_tpm').
+        train_split_fraction: The fraction of data to allocate for training.
+        random_state: The random seed for reproducibility.
+        stratification_bins: The number of bins for stratified sampling.
+
+    Returns:
+        A tuple containing two lists: the training set IDs and the test set IDs.
+    """
+    if split_method == "random":
+        logging.info("Splitting data randomly...")
+        random.Random(random_state).shuffle(all_tids)
+        split_idx = int(len(all_tids) * train_split_fraction)
+        train_set_ids = all_tids[:split_idx]
+        test_set_ids = all_tids[split_idx:]
+    else:  # Stratified sampling
+        metric_name = "raw counts" if "raw" in split_method else "TPM"
+        logging.info(
+            f"Performing stratified split based on {metric_name} "
+            f"using {stratification_bins} bins..."
+        )
+        
+        raw_counts = {
+            tid: np.sum(counts) for tid, counts in transcript_data.items()
+        }
+
+        if "tpm" in split_method:
+            transcript_lengths = {
+                tid: len(counts) for tid, counts in transcript_data.items()
+            }
+            metric_values = calculate_tpm(raw_counts, transcript_lengths)
+        else:  # raw counts
+            metric_values = raw_counts
+
+        metrics_series = pd.Series(metric_values)
+        
+        try:
+            bins = pd.qcut(
+                metrics_series, q=stratification_bins, labels=False, duplicates='drop'
+            )
+        except ValueError as e:
+            logging.error(f"Could not create {stratification_bins} bins. Try fewer. Error: {e}")
+            sys.exit(1)
+        
+        train_set_ids = []
+        test_set_ids = []
+
+        binned_tids = pd.Series(
+            metrics_series.index, index=metrics_series.index
+        ).groupby(bins)
+
+        for _, tids_in_bin in binned_tids:
+            tids_list = tids_in_bin.tolist()
+            random.Random(random_state).shuffle(tids_list)
+            
+            split_idx = round(len(tids_list) * train_split_fraction)
+            train_set_ids.extend(tids_list[:split_idx])
+            test_set_ids.extend(tids_list[split_idx:])
+
+        random.Random(random_state).shuffle(train_set_ids)
+        random.Random(random_state).shuffle(test_set_ids)
+    
+    return train_set_ids, test_set_ids
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -156,66 +211,14 @@ def main():
     logging.info(f"Loaded {len(all_tids)} total transcripts.")
 
     # --- Splitting logic ---
-    if args.split_method == "random":
-        logging.info("Splitting data randomly...")
-        # Shuffle the transcript IDs for a random split
-        random.Random(args.random_state).shuffle(all_tids)
-        # Determine the split index
-        split_idx = int(len(all_tids) * args.train_split_fraction)
-        train_set_ids = all_tids[:split_idx]
-        test_set_ids = all_tids[split_idx:]
-    else: # Stratified sampling
-        metric_name = "raw counts" if "raw" in args.split_method else "TPM"
-        logging.info(
-            f"Performing stratified split based on {metric_name} "
-            f"using {args.stratification_bins} bins..."
-        )
-        
-        raw_counts = {
-            tid: np.sum(counts) for tid, counts in transcript_data.items()
-        }
-
-        if "tpm" in args.split_method:
-            transcript_lengths = {
-                tid: len(counts) for tid, counts in transcript_data.items()
-            }
-            metric_values = calculate_tpm(raw_counts, transcript_lengths)
-        else: # raw counts
-            metric_values = raw_counts
-
-        # Create a Series for easy binning
-        metrics_series = pd.Series(metric_values)
-        
-        # Bin transcripts into quantiles, drop bins with no unique edges
-        try:
-            bins = pd.qcut(
-                metrics_series, q=args.stratification_bins, labels=False, duplicates='drop'
-            )
-        except ValueError as e:
-            logging.error(f"Could not create {args.stratification_bins} bins. "
-                          f"Try fewer bins. Error: {e}")
-            sys.exit(1)
-        
-        train_set_ids = []
-        test_set_ids = []
-
-        # Group transcript IDs by their assigned bin
-        binned_tids = pd.Series(
-            metrics_series.index, index=metrics_series.index
-        ).groupby(bins)
-
-        for bin_label, tids_in_bin in binned_tids:
-            tids_list = tids_in_bin.tolist()
-            # Shuffle within the bin for randomness
-            random.Random(args.random_state).shuffle(tids_list)
-            
-            split_idx = round(len(tids_list) * args.train_split_fraction)
-            train_set_ids.extend(tids_list[:split_idx])
-            test_set_ids.extend(tids_list[split_idx:])
-
-        # Final shuffle of the collected IDs to mix bins
-        random.Random(args.random_state).shuffle(train_set_ids)
-        random.Random(args.random_state).shuffle(test_set_ids)
+    train_set_ids, test_set_ids = split_transcript_ids(
+        all_tids,
+        transcript_data,
+        args.split_method,
+        args.train_split_fraction,
+        args.random_state,
+        args.stratification_bins,
+    )
     
     logging.info(
         f"Splitting data: {len(train_set_ids)} for training, {len(test_set_ids)} for testing."

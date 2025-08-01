@@ -34,39 +34,10 @@ import pysam
 import seaborn as sns
 from tqdm import tqdm
 
+from utils import calculate_tpm
+
 # --- Helper Function ---
-def calculate_tpm(
-    read_counts: Dict[str, int], transcript_lengths: Dict[str, int]
-) -> Dict[str, float]:
-    """Calculates Transcripts Per Million (TPM) for a set of transcripts.
-
-    Args:
-        read_counts: A dictionary mapping transcript IDs to their total read counts.
-        transcript_lengths: A dictionary mapping transcript IDs to their lengths in nucleotides.
-
-    Returns:
-        A dictionary mapping transcript IDs to their TPM values.
-    """
-    rpk_values = {}
-    
-    # Calculate RPK (Reads Per Kilobase)
-    for tid, count in read_counts.items():
-        length_kb = transcript_lengths.get(tid, 0) / 1000.0
-        if length_kb > 0:
-            rpk_values[tid] = count / length_kb
-        else:
-            rpk_values[tid] = 0
-
-    # Calculate the "per million" scaling factor
-    total_rpk = sum(rpk_values.values())
-    if total_rpk == 0:
-        return {tid: 0.0 for tid in read_counts.keys()}
-    
-    scaling_factor = total_rpk / 1_000_000.0
-
-    # Calculate TPM for each transcript
-    tpm_values = {tid: rpk / scaling_factor for tid, rpk in rpk_values.items()}
-    return tpm_values
+# The calculate_tpm has been moved to utils.py
 
 # --- Logging Configuration ---
 logging.basicConfig(

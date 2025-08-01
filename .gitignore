@@ -16,13 +16,32 @@
 # Ignore validation reports
 05_Reports/
 
-# Ignore Python cache files
+# Ignore LaTeX folder
+06_Scientific_Report/
+
+# Ignore __pycache__ folder in tests 
+tests/__pycache__/
+
+# Ignore the context.md file
+context.md
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
 
-# Ignore notebook checkpoints
-.ipynb_checkpoints/
+# IDE specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
 
-# Ignore OS-specific files
+# Other
+.ipynb_checkpoints
 .DS_Store
 Thumbs.db

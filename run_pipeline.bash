@@ -9,7 +9,7 @@ BAM_FILES="00_BAMs/uf_muellermcnicoll_2025_04_01_huvec_dnor_2_dedup.bam 00_BAMs/
 FASTA_FILE="01_Reference_Files/MANE.GRCh38.v0.95.select_ensembl_rna.fna"
 ORF_ANNOTATIONS="01_Reference_Files/MANE_CDS_coordinates.csv"
 MODEL_CONFIG="model_config.json"
-RANDOM_STATE=69
+RANDOM_STATE=42
 
 # --- Function to run a single pipeline ---
 run_pipeline() {

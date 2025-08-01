@@ -39,31 +39,11 @@ from matplotlib.colors import ListedColormap
 from matplotlib.backends.backend_pdf import PdfPages
 from tqdm import tqdm
 
+from utils import calculate_tpm, create_lagging_windows, normalize_emissions
+
 # --- Helper Function ---
-def calculate_tpm(
-    read_counts: Dict[str, int], transcript_lengths: Dict[str, int]
-) -> Dict[str, float]:
-    """Calculates Transcripts Per Million (TPM) for each transcript."""
-    rpk_values = {}
-    
-    # Calculate RPK (Reads Per Kilobase) for each transcript
-    for tid, count in read_counts.items():
-        length_kb = transcript_lengths.get(tid, 0) / 1000.0
-        if length_kb > 0:
-            rpk_values[tid] = count / length_kb
-        else:
-            rpk_values[tid] = 0
+# The calculate_tpm, create_lagging_windows, and normalize_emissions functions have been moved to utils.py
 
-    # Calculate the "per million" scaling factor
-    total_rpk = sum(rpk_values.values())
-    if total_rpk == 0:
-        return {tid: 0.0 for tid in read_counts.keys()}
-    
-    scaling_factor = total_rpk / 1_000_000.0
-
-    # Calculate TPM for each transcript
-    tpm_values = {tid: rpk / scaling_factor for tid, rpk in rpk_values.items()}
-    return tpm_values
 
 # --- Logging Configuration ---
 logging.basicConfig(
@@ -157,45 +137,7 @@ def load_data(
     return model, transcript_data, model_config, orf_df
 
 
-def create_lagging_windows(
-    read_counts: np.ndarray, window_size: int, lag_offset: int, constant_values: int = 1
-) -> np.ndarray:
-    """Creates lagging windows from a 1D array of read counts.
-
-    This function generates a 2D array of sliding windows over the input read
-    counts. The `lag_offset` parameter allows the windows to be shifted relative
-    to the start of the sequence, which is useful for aligning features like
-    the P-site of a ribosome.
-
-    Args:
-        read_counts: A 1D NumPy array of read counts for a single transcript.
-        window_size: The size of each sliding window.
-        lag_offset: The number of positions to shift the window start. This is
-                    achieved by prepending `lag_offset` constant values.
-        constant_values: The value to use for padding. Defaults to 1.
-
-    Returns:
-        A 2D NumPy array where each row is a window of size `window_size`.
-    """
-    padded_counts = np.pad(
-        read_counts, (lag_offset, 0), "constant", constant_values=constant_values
-    )
-    num_windows = len(read_counts)
-    if num_windows == 0:
-        return np.empty((0, window_size), dtype=np.int32)
-    shape = (num_windows, window_size)
-    strides = (padded_counts.strides[0], padded_counts.strides[0])
-    windows = np.lib.stride_tricks.as_strided(
-        padded_counts, shape=shape, strides=strides
-    )
-    return windows
-
-
-def normalize_emissions(unnormalized_emissions: np.ndarray) -> np.ndarray:
-    """Normalizes emission probabilities to sum to 1."""
-    row_sums = unnormalized_emissions.sum(axis=1, keepdims=True)
-    row_sums[row_sums == 0] = 1
-    return unnormalized_emissions / row_sums
+# The create_lagging_windows and normalize_emissions functions have been moved to utils.py
 
 
 def main():
@@ -378,28 +320,35 @@ def main():
         
         sorted_tids_by_tpm = sorted(tpm_values.keys(), key=lambda tid: tpm_values[tid])
         
-        percentiles = np.linspace(10, 100, 10)
-        
-        # Ensure we have unique indices to avoid plotting the same transcript twice
-        indices_to_plot = set()
-        for p in percentiles:
-            # Correctly calculate the index for the p-th percentile in the sorted list
-            if len(sorted_tids_by_tpm) > 1:
-                # Use np.arange to get the indices from 0 to N-1
-                idx = int(np.percentile(np.arange(len(sorted_tids_by_tpm)), p, method="nearest"))
-            else:
-                idx = 0
-            # Ensure index is within bounds
-            if idx >= len(sorted_tids_by_tpm):
-                idx = len(sorted_tids_by_tpm) - 1
-            indices_to_plot.add(idx)
+        # Failsafe: if we have fewer than 100 transcripts, use all available transcripts
+        num_transcripts = len(sorted_tids_by_tpm)
+        if num_transcripts < 100:
+            logging.info(f"Only {num_transcripts} transcripts available. Generating examples for all transcripts.")
+            # Use all available indices
+            sorted_indices = list(range(num_transcripts))
+        else:
+            logging.info("Generating 100 percentile-based examples (1st to 100th percentile).")
+            # Generate 100 percentiles (1st to 100th)
+            percentiles = np.linspace(1, 100, 100)
+            
+            # Ensure we have unique indices to avoid plotting the same transcript twice
+            indices_to_plot = set()
+            for p in percentiles:
+                # Correctly calculate the index for the p-th percentile in the sorted list
+                if len(sorted_tids_by_tpm) > 1:
+                    # Use np.arange to get the indices from 0 to N-1
+                    idx = int(np.percentile(np.arange(len(sorted_tids_by_tpm)), p, method="nearest"))
+                else:
+                    idx = 0
+                # Ensure index is within bounds
+                if idx >= len(sorted_tids_by_tpm):
+                    idx = len(sorted_tids_by_tpm) - 1
+                indices_to_plot.add(idx)
 
-        # Convert set to sorted list to maintain order
-        sorted_indices = sorted(list(indices_to_plot))
+            # Convert set to sorted list to maintain order
+            sorted_indices = sorted(list(indices_to_plot))
         
         for idx in sorted_indices:
-            # Calculate the actual percentile for the title
-            p = (idx / (len(sorted_tids_by_tpm) - 1)) * 100 if len(sorted_tids_by_tpm) > 1 else 100
             example_tid = sorted_tids_by_tpm[idx]
             
             # pseudocounts
@@ -411,7 +360,14 @@ def main():
             
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 10), sharex=True, gridspec_kw={'height_ratios': [2, 1]})
             
-            title_percentile = "Max Expression" if p >= 99.9 else f"{p:.0f}th Percentile (by TPM)"
+            # Calculate the title based on whether we're using all transcripts or percentiles
+            if num_transcripts < 100:
+                # When using all transcripts, show the rank order
+                title_percentile = f"Transcript {idx + 1} of {num_transcripts} (by TPM)"
+            else:
+                # Calculate the actual percentile for the title
+                p = (idx / (len(sorted_tids_by_tpm) - 1)) * 100 if len(sorted_tids_by_tpm) > 1 else 100
+                title_percentile = "Max Expression" if p >= 99.9 else f"{p:.0f}th Percentile (by TPM)"
             fig.suptitle(
                 f"Example: {title_percentile} Transcript ({example_tid})\n"
                 f"Total Reads: {raw_reads.get(example_tid, 0):,} | "

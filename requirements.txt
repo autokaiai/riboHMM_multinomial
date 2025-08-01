@@ -1,0 +1,9 @@
+hmmlearn
+numpy
+pandas
+pysam
+matplotlib
+seaborn
+joblib
+tqdm
+pytest
