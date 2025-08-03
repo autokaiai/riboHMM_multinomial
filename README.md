@@ -180,13 +180,33 @@ bash run_pipeline.bash \
 
 `riboHMM2.0` is a successful proof-of-concept that demonstrates the power of HMMs for interpreting Ribo-Seq data. By focusing on a robust and modern implementation, we have created a valuable tool for the genomics community.
 
-- **Strengths:** High accuracy in reading frame identification; robust to experimental noise due to its unique "lagging window" design; easy-to-use and modular pipeline.
-- **Limitations:** Lower precision in exact start-site identification; currently simplifies the data by only using the single most common footprint length.
+**Strengths:** High accuracy in reading frame identification; robust to experimental noise due to its unique "lagging window" design; easy-to-use and modular pipeline.
+
+**Limitations:** Lower precision in exact start-site identification; currently simplifies the data by only using the single most common footprint length.
 
 **Future Directions:**
 - Incorporate multiple read lengths into a unified model.
 - Experiment with more complex emission models (e.g., `GaussianMixtureHMM`).
 - Integrate other biological signals (like sequence context) to improve start site prediction.
+
+## How to Cite
+
+If you use this software for your research, please cite it as follows:
+
+**Plain Text:**
+> Kai Wöllstein, Marcel Schulz, Christina Kalk. (2025). riboHMM_multinomial (Version 1.0.0) [Computer software]. https://github.com/autokaiai/riboHMM_multinomial
+
+**BibTeX:**
+```bibtex
+@software{Woellstein_2025_riboHMM,
+  author       = {Kai Wöllstein and Marcel Schulz and Christina Kalk},
+  title        = {riboHMM_multinomial},
+  year         = 2025,
+  publisher    = {GitHub},
+  version      = {1.0.0},
+  url          = {https://github.com/autokaiai/riboHMM_multinomial}
+}
+```
 
 ## License
 
@@ -200,6 +220,6 @@ You may obtain a copy of the License at
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUTHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
