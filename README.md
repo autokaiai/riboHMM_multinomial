@@ -194,17 +194,18 @@ bash run_pipeline.bash \
 If you use this software for your research, please cite it as follows:
 
 **Plain Text:**
-> Kai Wöllstein, Marcel Schulz, Christina Kalk. (2025). riboHMM_multinomial (Version 1.0.0) [Computer software]. https://github.com/autokaiai/riboHMM_multinomial
+> Kai Wöllstein, Marcel Schulz, and Christina Kalk. riboHMM_multinomial. Version 1.0.0. 2025. GitHub. https://github.com/autokaiai/riboHMM_multinomial.
 
 **BibTeX:**
 ```bibtex
 @software{Woellstein_2025_riboHMM,
-  author       = {Kai Wöllstein and Marcel Schulz and Christina Kalk},
-  title        = {riboHMM_multinomial},
-  year         = 2025,
+  author       = {Kai W{\"o}llstein and Marcel Schulz and Christina Kalk},
+  title        = {riboHMM\_multinomial},
+  year         = {2025},
   publisher    = {GitHub},
   version      = {1.0.0},
-  url          = {https://github.com/autokaiai/riboHMM_multinomial}
+  url          = {https://github.com/autokaiai/riboHMM_multinomial},
+  urldate      = {2025-08-03}
 }
 ```
 
